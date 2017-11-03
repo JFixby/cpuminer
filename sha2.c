@@ -12,12 +12,9 @@
 #include "miner.h"
 
 #include <string.h>
-#include <inttypes.h>
+#include <stdint.h>
 
-#if defined(USE_ASM) && \
-	(defined(__x86_64__) || \
-	 (defined(__arm__) && defined(__APCS_32__)) || \
-	 (defined(__powerpc__) || defined(__ppc__) || defined(__PPC__)))
+#if defined(__arm__) && defined(__APCS_32__)
 #define EXTERN_SHA256
 #endif
 

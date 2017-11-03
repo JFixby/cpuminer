@@ -1,46 +1,44 @@
 #!/usr/bin/perl
-# Copyright 2012, 2015 pooler@litecoinpool.org
+# Copyright 2012 pooler@litecoinpool.org
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the Free
 # Software Foundation; either version 2 of the License, or (at your option)
 # any later version.  See COPYING for more details.
 #
-# nomacro.pl - expand assembler macros.
+# nomacro.pl - convert assembler macros to C preprocessor macros.
 
 use strict;
 
 foreach my $f (<*.S>) {
-	rename $f, "$f.orig" unless -e "$f.orig";
+	rename $f, "$f.orig";
 	open FIN, "$f.orig";
 	open FOUT, ">$f";
+	my $inmacro = 0;
 	my %macros = ();
-	my %m = ();
 	while (<FIN>) {
-		if (m/^\.macro\s+(\w+)\s*(.*)$/) {
-			$m{name} = $1;
-			@m{args} = [split /\s*,\s*/, $2];
-			$m{body} = "";
+		if (m/^\.macro\s+([_0-9A-Z]+)(?:\s*)(.*)$/i) {
+			print FOUT "#define $1($2) \\\n";
+			$macros{$1} = 1;
+			$inmacro = 1;
 			next;
 		}
 		if (m/^\.endm/) {
-			$macros{$m{name}} = {%m};
-			%m = ();
+			print FOUT "\n";
+			$inmacro = 0;
 			next;
 		}
-		for my $n (keys %macros) {
-			if (m/^\s*$n\b\s*(.*)$/) {
-				my @a = split /\s*,\s*/, $1;
-				$_ = $macros{$n}{body};
-				for my $i (0 .. $#{$macros{$n}{args}}) {
-					s/\\$macros{$n}{args}[$i]\b/$a[$i]/g;
-				}
-				last;
+		for my $m (keys %macros) {
+			s/^([ \t]*)($m)(?:[ \t]+([^#\n]*))?([;\n])/\1\2(\3)\4/;
+		}
+		if ($inmacro) {
+			if (m/^\s*#if/) {
+				$_ = <FIN> while (!m/^\s*#endif/);
+				next;
 			}
-		}
-		if (%m) {
-			$m{body} .= $_;
-			next;
+			next if (m/^\s*$/);
+			s/\\//g;
+			s/$/; \\/;
 		}
 		print FOUT;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2012, 2014 pooler@litecoinpool.org
+ * Copyright 2012 pooler@litecoinpool.org
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -9,7 +9,7 @@
 
 #include "cpuminer-config.h"
 
-#if defined(USE_ASM) && defined(__arm__) && defined(__APCS_32__)
+#if defined(__arm__) && defined(__APCS_32__)
 
 #if defined(__ARM_ARCH_5E__) || defined(__ARM_ARCH_5TE__) || \
 	defined(__ARM_ARCH_5TEJ__) || defined(__ARM_ARCH_6__) || \
@@ -472,16 +472,14 @@ scrypt_core:
 _scrypt_core:
 	stmfd	sp!, {r4-r11, lr}
 	mov	r12, sp
-	sub	sp, sp, #22*4
+	sub	sp, sp, #21*4
 	bic	sp, sp, #63
 	str	r12, [sp, #20*4]
-	str	r2, [sp, #21*4]
 	
 	scrypt_shuffle
 	
-	ldr	r2, [sp, #21*4]
 	str	r0, [sp, #16*4]
-	add	r12, r1, r2, lsl #7
+	add	r12, r1, #1024*32*4
 	str	r12, [sp, #18*4]
 scrypt_core_loop1:
 	add	lr, r0, #16*4
@@ -519,14 +517,12 @@ scrypt_core_loop1:
 	cmp	r1, r12
 	bne	scrypt_core_loop1
 	
-	ldr	r12, [sp, #21*4]
 	ldr	r4, [r0, #16*4]
-	sub	r2, r12, #1
-	str	r2, [sp, #21*4]
-	sub	r1, r1, r12, lsl #7
+	sub	r1, r1, #1024*32*4
 	str	r1, [sp, #17*4]
-	and	r4, r4, r2
-	add	r1, r1, r4, lsl #7
+	mov	r4, r4, lsl #32-10
+	mov	r12, #1024
+	add	r1, r1, r4, lsr #32-10-7
 scrypt_core_loop2:
 	add	r2, r0, #16*4
 	add	r3, r1, #16*4
@@ -557,10 +553,9 @@ scrypt_core_loop2:
 	mov	r1, sp
 	ldr	r3, [sp, #17*4]
 	add	r0, r0, #16*4
-	ldr	r2, [sp, #21*4]
 	scrypt_core_macro3_x4
-	and	r4, r4, r2
-	add	r3, r3, r4, lsl #7
+	mov	r4, r4, lsl #32-10
+	add	r3, r3, r4, lsr #32-10-7
 	str	r3, [sp, #19*4]
 #ifdef __ARM_ARCH_5E_OR_6_OR_7__
 	pld	[r3, #16*4]
@@ -799,11 +794,10 @@ _scrypt_core_3way:
 	mov	r12, sp
 	sub	sp, sp, #24*16
 	bic	sp, sp, #63
-	str	r2, [sp, #4*16+3*4]
-	str	r12, [sp, #4*16+4*4]
+	str	r12, [sp, #4*16+3*4]
 	
-	mov	r3, r0
-	vldmia	r3!, {q8-q15}
+	mov	r2, r0
+	vldmia	r2!, {q8-q15}
 	vmov.u64	q0, #0xffffffff
 	vmov.u32	q1, q8
 	vmov.u32	q2, q12
@@ -815,7 +809,7 @@ _scrypt_core_3way:
 	vbif.u32	q14, q15, q0
 	vbif.u32	q11, q1, q0
 	vbif.u32	q15, q2, q0
-	vldmia	r3!, {q0-q7}
+	vldmia	r2!, {q0-q7}
 	vswp.u32	d17, d21
 	vswp.u32	d25, d29
 	vswp.u32	d18, d22
@@ -832,7 +826,7 @@ _scrypt_core_3way:
 	vbif.u32	q6, q7, q8
 	vbif.u32	q3, q9, q8
 	vbif.u32	q7, q10, q8
-	vldmia	r3, {q8-q15}
+	vldmia	r2, {q8-q15}
 	vswp.u32	d1, d5
 	vswp.u32	d9, d13
 	vswp.u32	d2, d6
@@ -858,7 +852,7 @@ _scrypt_core_3way:
 	
 	add	lr, sp, #128
 	vldmia	lr, {q0-q7}
-	add	r2, r1, r2, lsl #7
+	add	r2, r1, #1024*32*4
 	str	r0, [sp, #4*16+0*4]
 	str	r2, [sp, #4*16+2*4]
 scrypt_core_3way_loop1:
@@ -869,13 +863,12 @@ scrypt_core_3way_loop1:
 	scrypt_core_macro1a_x4
 	scrypt_core_macro1a_x4
 	scrypt_core_macro1a_x4
-	ldr	r2, [sp, #4*16+3*4]
 	scrypt_core_macro1a_x4
 	sub	r1, r1, #4*16
 	
-	add	r1, r1, r2, lsl #7
+	add	r1, r1, #1024*32*4
 	vstmia	r1, {q0-q7}
-	add	r3, r1, r2, lsl #7
+	add	r3, r1, #1024*32*4
 	vstmia	r3, {q8-q15}
 	
 	add	lr, sp, #128
@@ -964,22 +957,20 @@ scrypt_core_3way_loop1:
 	cmp	r1, r2
 	bne	scrypt_core_3way_loop1
 	
-	ldr	r2, [sp, #4*16+3*4]
 	add	r5, sp, #256+4*16
 	vstmia	r5, {q12-q15}
 	
-	sub	r1, r1, r2, lsl #7
+	sub	r1, r1, #1024*32*4
 	str	r1, [sp, #4*16+1*4]
+	mov	r2, #1024
 scrypt_core_3way_loop2:
 	str	r2, [sp, #4*16+2*4]
 	
 	ldr	r0, [sp, #4*16+0*4]
 	ldr	r1, [sp, #4*16+1*4]
-	ldr	r2, [sp, #4*16+3*4]
 	ldr	r4, [r0, #16*4]
-	sub	r2, r2, #1
-	and	r4, r4, r2
-	add	r1, r1, r4, lsl #7
+	mov	r4, r4, lsl #32-10
+	add	r1, r1, r4, lsr #32-10-7
 	add	r2, r0, #16*4
 	add	r3, r1, #16*4
 	mov	r12, sp
@@ -989,31 +980,29 @@ scrypt_core_3way_loop2:
 	scrypt_core_macro1b_x4
 	
 	ldr	r1, [sp, #4*16+1*4]
-	ldr	r2, [sp, #4*16+3*4]
-	add	r1, r1, r2, lsl #7
-	add	r3, r1, r2, lsl #7
-	sub	r2, r2, #1
+	add	r1, r1, #1024*32*4
+	add	r3, r1, #1024*32*4
 	vmov	r6, r7, d8
-	and	r6, r6, r2
-	add	r6, r1, r6, lsl #7
+	mov	r6, r6, lsl #32-10
+	add	r6, r1, r6, lsr #32-10-7
 	vmov	r7, r8, d24
 	add	lr, sp, #128
 	vldmia	lr, {q0-q3}
 	pld	[r6]
-	pld	[r6, #8*4]
+	pld [r6, #8*4]
 	pld	[r6, #16*4]
-	pld	[r6, #24*4]
+	pld [r6, #24*4]
 	vldmia	r6, {q8-q15}
-	and	r7, r7, r2
-	add	r7, r3, r7, lsl #7
+	mov	r7, r7, lsl #32-10
+	add	r7, r3, r7, lsr #32-10-7
 	veor.u32	q8, q8, q0
 	veor.u32	q9, q9, q1
 	veor.u32	q10, q10, q2
 	veor.u32	q11, q11, q3
 	pld	[r7]
-	pld	[r7, #8*4]
+	pld [r7, #8*4]
 	pld	[r7, #16*4]
-	pld	[r7, #24*4]
+	pld [r7, #24*4]
 	veor.u32	q12, q12, q4
 	veor.u32	q13, q13, q5
 	veor.u32	q14, q14, q6
@@ -1090,17 +1079,15 @@ scrypt_core_3way_loop2:
 	
 	ldr	r0, [sp, #4*16+0*4]
 	ldr	r3, [sp, #4*16+1*4]
-	ldr	r2, [sp, #4*16+3*4]
 	mov	r1, sp
 	add	r0, r0, #16*4
-	sub	r2, r2, #1
 	scrypt_core_macro3_x4
-	and	r4, r4, r2
-	add	r3, r3, r4, lsl #7
+	mov	r4, r4, lsl #32-10
+	add	r3, r3, r4, lsr #32-10-7
 	pld	[r3, #16*4]
 	pld	[r3]
-	pld	[r3, #24*4]
-	pld	[r3, #8*4]
+	pld [r3, #24*4]
+	pld [r3, #8*4]
 	scrypt_core_macro3_x6
 	scrypt_core_macro3_x6
 	
@@ -1177,7 +1164,7 @@ scrypt_core_3way_loop2:
 	vswp.u32	d26, d30
 	vstmia	r0, {q8-q15}
 	
-	ldr	sp, [sp, #4*16+4*4]
+	ldr	sp, [sp, #4*16+3*4]
 	vpop	{q4-q7}
 	ldmfd	sp!, {r4-r11, pc}
 
